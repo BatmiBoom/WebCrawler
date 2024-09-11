@@ -1,4 +1,4 @@
-package parseurl
+package handlehtml
 
 import (
 	"reflect"
