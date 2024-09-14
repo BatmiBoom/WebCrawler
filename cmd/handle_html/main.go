@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"golang.org/x/net/html"
@@ -20,7 +21,7 @@ func GetHTML(rawURL string) (string, error) {
 	}
 
 	if !strings.ContainsAny(resp.Header["Content-Type"][0], "text/html") {
-		return "", fmt.Errorf("ERROR: Wrong content type %v", resp.Header["Content-Type"][0])	
+		return "", fmt.Errorf("ERROR: Wrong content type %v", resp.Header["Content-Type"][0])
 	}
 
 	rawHTML, err := io.ReadAll(resp.Body)
@@ -31,33 +32,38 @@ func GetHTML(rawURL string) (string, error) {
 	return string(rawHTML), nil
 }
 
-func GetURLsFromHTML(htmlBody, rawBaseURL string) ([]string, error) {
-	tokens := html.NewTokenizer(strings.NewReader(htmlBody))
+func GetURLsFromHTML(htmlBody string, parsedUrl *url.URL) ([]string, error) {
+	htmlReader := strings.NewReader(htmlBody)
+	doc, err := html.Parse(htmlReader)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse HTML: %v", err)
+	}
 
-	links := []string{}
-	for {
-		tt := tokens.Next()
+	var urls []string
+	var traverseNodes func(*html.Node)
+	traverseNodes = func(node *html.Node) {
+		if node.Type == html.ElementNode && node.Data == "a" {
+			for _, anchor := range node.Attr {
+				if anchor.Key == "href" {
+					href, err := url.Parse(anchor.Val)
+					if err != nil {
+						fmt.Printf("couldn't parse href '%v': %v\n", anchor.Val, err)
+						continue
+					}
 
-		switch tt {
-		case html.ErrorToken:
-			return links, nil
-		case html.StartTagToken:
-			tn, has_attr := tokens.TagName()
-
-			if has_attr == false {
-				break
-			}
-
-			if len(tn) == 1 && tn[0] == 'a' {
-				link := getLink(tokens)
-				if link == "" {
-					break
+					resolvedURL := parsedUrl.ResolveReference(href)
+					urls = append(urls, resolvedURL.String())
 				}
-
-				links = append(links, link)
 			}
 		}
+
+		for child := node.FirstChild; child != nil; child = child.NextSibling {
+			traverseNodes(child)
+		}
 	}
+	traverseNodes(doc)
+
+	return urls, nil
 }
 
 func getLink(tokenizer *html.Tokenizer) string {

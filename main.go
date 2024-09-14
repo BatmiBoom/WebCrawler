@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	handlehtml "github.com/BatmiBoom/web_crawler_go/cmd/handle_html"
+	"github.com/BatmiBoom/web_crawler_go/cmd/crawler"
 )
 
 func main() {
@@ -18,12 +18,12 @@ func main() {
 	}
 
 	BASE_URL := os.Args[1]
-	fmt.Printf("starting crawl of: %s", BASE_URL)
+	fmt.Printf("starting crawl of: %s\n", BASE_URL)
 
-	rawHTML, err := handlehtml.GetHTML(BASE_URL)
+	pages, err := crawler.CrawlPage(BASE_URL, BASE_URL, map[string]int{})
 	if err != nil {
-		fmt.Printf("ERROR: %v", err)
+		fmt.Printf("There was an error in the crawl %v", err)
 	}
 
-	fmt.Println(rawHTML)
+	fmt.Println(pages)
 }

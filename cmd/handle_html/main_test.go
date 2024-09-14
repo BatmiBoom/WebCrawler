@@ -8,13 +8,11 @@ import (
 func TestGetURLsFromHTML(t *testing.T) {
 	tests := []struct {
 		name      string
-		inputURL  string
 		inputBody string
 		expected  []string
 	}{
 		{
 			name:     "Get URLS from HTML",
-			inputURL: "https://blog.boot.dev",
 			inputBody: `
 				<html>
 						<body>
@@ -28,7 +26,7 @@ func TestGetURLsFromHTML(t *testing.T) {
 
 	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			actual, err := GetURLsFromHTML(tc.inputBody, tc.inputURL)
+			actual, err := GetURLsFromHTML(tc.inputBody)
 			if err != nil {
 				t.Errorf("Test %v - '%s' FAIL: unexpected error: %v", i, tc.name, err)
 				return
