@@ -3,68 +3,71 @@ package crawler
 import (
 	"fmt"
 	"net/url"
+	"sync"
 
 	handlehtml "github.com/BatmiBoom/web_crawler_go/cmd/handle_html"
 	"github.com/BatmiBoom/web_crawler_go/cmd/normalize"
 )
 
-func CrawlPage(rawBaseURL, rawCurrentURL string, pages map[string]int) (map[string]int, error) {
-	normalizeBase, err := normalize.NormalizeURL(rawBaseURL)
+type Config struct {
+	Pages              map[string]int
+	MaxPages           int
+	MaxConcurrency     int
+	BaseURL            *url.URL
+	Mu                 *sync.Mutex
+	ConcurrencyControl chan struct{}
+	Wg                 *sync.WaitGroup
+}
+
+func (cfg *Config) CrawlPage(
+	parsedCurrentURL *url.URL,
+) (map[string]int, error) {
+	fmt.Println("Checking if we suprass max pages")
+	if len(cfg.Pages) > cfg.MaxPages {
+		return cfg.Pages, nil
+	}
+
+	if cfg.BaseURL.Host != parsedCurrentURL.Host {
+		return cfg.Pages, fmt.Errorf("ERROR: out of domain")
+	}
+
+	normalizeCurrent, err := normalize.NormalizeURL(parsedCurrentURL)
 	if err != nil {
-		fmt.Println(rawBaseURL)
-		return pages, fmt.Errorf("error: normalizing url %v\n", err)
+		fmt.Println(parsedCurrentURL)
+		return cfg.Pages, fmt.Errorf("error: normalizing url %v\n", err)
 	}
 
-	normalizeCurrent, err := normalize.NormalizeURL(rawCurrentURL)
-	if err != nil {
-		fmt.Println(rawCurrentURL)
-		return pages, fmt.Errorf("error: normalizing url %v\n", err)
-	}
-
-	// fmt.Printf("Normalizing URLs Base %s Curr %s \n", normalizeBase, normalizeCurrent)
-
-	parsedBase, err := url.Parse(normalizeBase)
-	if err != nil {
-		return pages, fmt.Errorf("error: parsing the url %v\n", err)
-	}
-
-	parsedCurrent, err := url.Parse(normalizeCurrent)
-	if err != nil {
-		return pages, fmt.Errorf("error: parsing the url %v\n", err)
-	}
-
-	if parsedBase.Host == "" || parsedCurrent.Host == "" {
-		return pages, fmt.Errorf("ERROR: no host")
-	}
-
-	if parsedBase.Host != parsedCurrent.Host {
-		return pages, fmt.Errorf("ERROR: out of domain")
-	}
-
-	_, ok := pages[normalizeCurrent]
+	_, ok := cfg.Pages[normalizeCurrent]
 	if ok {
-		// fmt.Printf("Alredy exist in the map %s\n", normalizeCurrent)
-		pages[normalizeCurrent]++
-		return pages, nil
+		fmt.Printf("Page already existed %v\n", normalizeCurrent)
+		cfg.Pages[normalizeCurrent]++
+		return cfg.Pages, nil
 	}
 
-	// fmt.Printf("Adding entry in the map %s\n", normalizeCurrent)
-	pages[normalizeCurrent] = 1
+	fmt.Printf("New url %v\n", normalizeCurrent)
+	cfg.Pages[normalizeCurrent] = 1
 
-	rawHTML, err := handlehtml.GetHTML(rawCurrentURL)
+	fmt.Printf("Requesting HTML %v\n", normalizeCurrent)
+	rawHTML, err := handlehtml.GetHTML(normalizeCurrent)
 	if err != nil {
-		return pages, fmt.Errorf("ERROR: Getting the HTML %v\n", err)
+		return cfg.Pages, fmt.Errorf("ERROR: Getting the HTML %v\n", err)
 	}
 
-	links, err := handlehtml.GetURLsFromHTML(rawHTML, parsedCurrent)
+	fmt.Printf("Parsing links %v\n", normalizeCurrent)
+	links, err := handlehtml.GetURLsFromHTML(rawHTML, parsedCurrentURL)
 	if err != nil {
-		return pages, fmt.Errorf("ERROR: Getting the URLS %v\n", err)
+		return cfg.Pages, fmt.Errorf("ERROR: Getting the URLS %v\n", err)
 	}
-	// fmt.Printf("Links %v\n", links)
 
 	for _, link := range links {
-		CrawlPage(rawBaseURL, link, pages)
+		parsedNewCurrentURL, err := url.Parse(link)
+		if err != nil {
+			return cfg.Pages, fmt.Errorf("ERROR: Parsing new link %v\n", err)
+		}
+
+		fmt.Printf("New Crawl on %v\n", parsedNewCurrentURL)
+		cfg.CrawlPage(parsedNewCurrentURL)
 	}
 
-	return pages, nil
+	return cfg.Pages, nil
 }

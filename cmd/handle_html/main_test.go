@@ -1,6 +1,7 @@
 package handlehtml
 
 import (
+	"net/url"
 	"reflect"
 	"testing"
 )
@@ -9,10 +10,12 @@ func TestGetURLsFromHTML(t *testing.T) {
 	tests := []struct {
 		name      string
 		inputBody string
+		inputUrl  string
 		expected  []string
 	}{
 		{
 			name:     "Get URLS from HTML",
+			inputUrl: "https://blog.boot.dev/",
 			inputBody: `
 				<html>
 						<body>
@@ -26,7 +29,8 @@ func TestGetURLsFromHTML(t *testing.T) {
 
 	for i, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			actual, err := GetURLsFromHTML(tc.inputBody)
+			parsedUrl, _ := url.Parse(tc.inputUrl)
+			actual, err := GetURLsFromHTML(tc.inputBody, parsedUrl)
 			if err != nil {
 				t.Errorf("Test %v - '%s' FAIL: unexpected error: %v", i, tc.name, err)
 				return

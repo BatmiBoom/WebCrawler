@@ -11,7 +11,7 @@ func TestNormalizeURL(t *testing.T) {
 		{
 			name:     "remove scheme",
 			inputURL: "https://blog.boot.dev/path",
-			expected: "blog.boot.dev/path",
+			expected: "https://blog.boot.dev/path",
 		},
 		// add more test cases here
 	}
@@ -24,7 +24,13 @@ func TestNormalizeURL(t *testing.T) {
 				return
 			}
 			if actual != tc.expected {
-				t.Errorf("Test %v - %s FAIL: expected URL: %v, actual: %v", i, tc.name, tc.expected, actual)
+				t.Errorf(
+					"Test %v - %s FAIL: expected URL: %v, actual: %v",
+					i,
+					tc.name,
+					tc.expected,
+					actual,
+				)
 			}
 		})
 	}
